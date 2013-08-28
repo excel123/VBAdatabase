@@ -2,8 +2,7 @@ Private Sub Workbook_BeforeClose(Cancel As Boolean)
     ''''''''''''''''''''''''''''''''''''''''''''''''
     ' Save the workbook's sheet visibility settings
     ' and hide all sheets except the introduction
-    ' sheet. This Workbook_BeforeClose will run only
-    ' if macros are enabled.
+    ' sheet.
     ''''''''''''''''''''''''''''''''''''''''''''''''
     SaveStateAndHide
 End Sub
