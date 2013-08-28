@@ -1,0 +1,197 @@
+Private Sub Workbook_BeforeClose(Cancel As Boolean)
+    ''''''''''''''''''''''''''''''''''''''''''''''''
+    ' Save the workbook's sheet visibility settings
+    ' and hide all sheets except the introduction
+    ' sheet. This Workbook_BeforeClose will run only
+    ' if macros are enabled.
+    ''''''''''''''''''''''''''''''''''''''''''''''''
+    SaveStateAndHide
+End Sub
+
+Private Sub Workbook_Open()
+    ''''''''''''''''''''''''''''''''''''''''''''''''
+    ' Unhide the sheets. This Workbook_Open event
+    ' will run only if macros are enabled. If macros
+    ' are not enabled, this code will not run and
+    ' only the introduction sheet will be visible.
+    ''''''''''''''''''''''''''''''''''''''''''''''''
+    UnHideSheets
+End Sub
+
+Paste all of the following code into a regular code module. Change the lines marked with '<<<< CHANGE to the appropriate values.
+
+C_SHEETSTATE_NAME is the name of a Defined Name in which the the Visible properties of all the worksheets are stored. There is no reason to change this value, but you can certainly do so.
+
+C_INTRO_SHEETNAME is the name of the worksheet that should be displayed if the workbook is opened with macros disabled. This sheet should contain a text to the user indicating that the workbook should be opened with macros enabled along with instructions on how to enable macros.
+
+C_WORKBOOK_PASSWORD is the password used to protect and unprotect the workbook. If your workbook has not protection, you can leave this value unchanged.
+
+Option Explicit
+
+Private Const C_SHEETSTATE_NAME = "SheetState"
+Private Const C_INTRO_SHEETNAME = "Introduction"    '<<<< CHANGE
+Private Const C_WORKBOOK_PASSWORD = "abc"           '<<<< CHANGE
+
+Sub SaveStateAndHide()
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' SaveStateAndHide
+' This is called from Workbook_BeforeClose.
+' This procedure saves the Visible propreties of all worksheets
+' in the workbook. This will run only if macros are enabled. It
+' saves the Visible properties as a colon-delimited string, each
+' element of which is the Visible property of a sheet. In the
+' property string, C_INTRO_SHEETNAME is set to xlSheetVeryHidden
+' so that if the workbook is opened with macros enabled, that
+' sheet will not be visible. If macros are not enabled, only
+' that sheet will be visible.
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    Dim S As String
+    Dim WS As Object
+    Dim N As Long
+    ''''''''''''''''''''''''''''''''''''''''''''
+    ' Protection settings. We must be
+    ' able to unprotect the workbook in
+    ' order to modify the sheet visibility
+    ' properties. We will restore the
+    ' protection at the end of this procedure.
+    ''''''''''''''''''''''''''''''''''''''''''''
+    Dim HasProtectWindows As Boolean
+    Dim HasProtectStructure As Boolean
+    
+    '''''''''''''''''''''''''''''''''''''''''''''''
+    ' Save the workbook's protection settings and
+    ' attempt to unprotect the workbook.
+    '''''''''''''''''''''''''''''''''''''''''''''''
+    HasProtectWindows = ThisWorkbook.ProtectWindows
+    HasProtectStructure = ThisWorkbook.ProtectStructure
+    
+    ThisWorkbook.Unprotect Password:=C_WORKBOOK_PASSWORD
+    
+    '''''''''''''''''''''''''''''''''''''''''''''''
+    ' Make the introduction sheet visible
+    '''''''''''''''''''''''''''''''''''''''''''''''
+    ThisWorkbook.Worksheets(C_INTRO_SHEETNAME).Visible = xlSheetVisible
+    '''''''''''''''''''''''''''''''''''''''''''''''
+    ' Delete the Name. Ignore error if it doesn't
+    ' exist.
+    On Error Resume Next
+    '''''''''''''''''''''''''''''''''''''''''''''''
+    ThisWorkbook.Names(C_SHEETSTATE_NAME).Delete
+    Err.Clear
+    On Error GoTo 0
+    For Each WS In ThisWorkbook.Sheets
+        '''''''''''''''''''''''''''''''''''''''''''''''
+        ' Create a string of the sheet visibility
+        ' properties, separated by ':' characters.
+        ' Do not put a ':' after the last sheet. Always
+        ' set the visible property of the Introduction
+        ' sheet to xlSheetVeryHidden. Don't put a ':'
+        ' after the last sheet visible property.
+        '''''''''''''''''''''''''''''''''''''''''''''''
+        S = S & IIf(StrComp(WS.Name, C_INTRO_SHEETNAME, vbTextCompare) = 0, _
+            CStr(xlSheetVeryHidden), CStr(WS.Visible)) & _
+            IIf(WS.Index = ThisWorkbook.Sheets.Count, "", ":")
+        '''''''''''''''''''''''''''''''''''''''''''''''
+        ' If WS is the intro sheet, make it visible,
+        ' otherwise make it VeryHidden. This sets all
+        ' sheets except C_INTRO_SHEETNAME to very
+        ' hidden.
+        ''''''''''''''''''''''''''''''''''''''''''''''''
+        If StrComp(WS.Name, C_INTRO_SHEETNAME, vbTextCompare) = 0 Then
+            WS.Visible = xlSheetVisible
+        Else
+            WS.Visible = xlSheetVeryHidden
+        End If
+    Next WS
+    ''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    ' Save the property string in a defined name.
+    ''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    ThisWorkbook.Names.Add Name:=C_SHEETSTATE_NAME, RefersTo:=Chr(39) & S, Visible:=False
+    
+    ''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    ' Set the workbook protection back to what it was.
+    ''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    ThisWorkbook.Protect C_WORKBOOK_PASSWORD, _
+        structure:=HasProtectStructure, Windows:=HasProtectWindows
+    
+End Sub
+
+
+Sub UnHideSheets()
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' UnHideSheets
+' This is called by Workbook_Open to hide the introduction sheet
+' and set all the other worksheets to their visible state that
+' was stored when the workbook was last closed. The introduction
+' sheet is set to xlSheetVeryHidden. This maro is executed only
+' is macros are enabled. If the workbook is opened without
+' macros enabled, only the introduction sheet will be visible.
+' If an error occurs, make the intro sheet visible and get out.
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+    Dim S As String
+    Dim N As Long
+    Dim VisibleArr As Variant
+    Dim HasProtectWindows As Boolean
+    Dim HasProtectStructure As Boolean
+    
+    '''''''''''''''''''''''''''''''''''''''''''''''
+    ' Save the workbook's protection settings and
+    ' attempt to unprotect the workbook.
+    '''''''''''''''''''''''''''''''''''''''''''''''
+    HasProtectWindows = ThisWorkbook.ProtectWindows
+    HasProtectStructure = ThisWorkbook.ProtectStructure
+    
+    ThisWorkbook.Unprotect Password:=C_WORKBOOK_PASSWORD
+    
+    On Error GoTo ErrHandler:
+    Err.Clear
+    '''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    ' Get the defined name that contains the sheet visible
+    ' properties and clean up the string.
+    '''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    S = ThisWorkbook.Names(C_SHEETSTATE_NAME).RefersTo
+    S = Mid(S, 4, Len(S) - 4)
+    
+    '''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    ' Set VisibleArr to an array of the visible properties,
+    ' one element per worksheet.
+    '''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    If InStr(1, S, ":", vbBinaryCompare) = 0 Then
+        VisibleArr = Array(S)
+    Else
+        VisibleArr = Split(S, ":")
+    End If
+    '''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    ' Loop through the array and set the Visible propety
+    ' for each sheet. If we're processing the C_INTRO_SHEETNAME
+    ' sheet, make it Visible (since it may be the only
+    ' visbile sheet). We'll hide it later after the
+    ' loop.
+    '''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    For N = LBound(VisibleArr) To UBound(VisibleArr)
+        If StrComp(ThisWorkbook.Sheets(N - LBound(VisibleArr) + 1).Name, C_INTRO_SHEETNAME) = 0 Then
+            ThisWorkbook.Sheets(C_INTRO_SHEETNAME).Visible = xlSheetVisible
+        Else
+            ThisWorkbook.Sheets(N - LBound(VisibleArr) + 1).Visible = CLng(VisibleArr(N))
+        End If
+    Next N
+    
+    ''''''''''''''''''''''''''''''''
+    ' Hide the INTRO sheet.
+    ''''''''''''''''''''''''''''''''
+    ThisWorkbook.Sheets(C_INTRO_SHEETNAME).Visible = xlSheetVeryHidden
+
+    ''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    ' Set the workbook protection back to what it was.
+    ''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    ThisWorkbook.Protect Password:=C_WORKBOOK_PASSWORD, _
+        structure:=HasProtectStructure, Windows:=HasProtectWindows
+    
+    Exit Sub
+    
+ErrHandler:
+    ThisWorkbook.Worksheets(C_INTRO_SHEETNAME).Visible = xlSheetVisible
+    
+End Sub
